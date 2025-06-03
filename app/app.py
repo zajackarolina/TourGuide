@@ -21,8 +21,8 @@ def index():
 @app.route('/route', methods=['POST'])
 def generate_route():
     selected_places = request.form.getlist('places')  # Pobieramy wybrane zabytki
-    if not selected_places:
-        return redirect(url_for('index'))  
+    if len(selected_places) < 2:
+        return redirect(url_for('index')) 
     
     places = load_places_from_csv('./models/data.csv')
     selected_indices = [places.index(place) for place in selected_places]
@@ -39,13 +39,15 @@ def generate_route():
 
 
     coords = load_coords_from_csv('./models/data.csv')
-    distance_matrix, duration_matrix_min = create_distance_matrix(coords, api_key)
+    selected_coords = [coords[i] for i in selected_indices]
+
+    distance_matrix, duration_matrix_min = create_distance_matrix(selected_coords, api_key)
 
     total_km, total_minutes = calculate_total_distance_and_time(best_path, distance_matrix, duration_matrix_min)
     formatted_time = format_duration(total_minutes)
 
     # Generowanie URL do Google Maps
-    ordered_path = "/".join([f"{coords[i][0]},{coords[i][1]}" for i in best_path + [best_path[0]]])
+    ordered_path = "/".join([f"{selected_coords[i][0]},{selected_coords[i][1]}" for i in best_path + [best_path[0]]])
     base_url = "https://www.google.com/maps/dir/"
     url = base_url + ordered_path + "/data=!3m1!4b1!4m2!4m1!3e2"
     
@@ -54,7 +56,7 @@ def generate_route():
     marker_params = []
 
     for i, idx in enumerate(best_path):
-        lat, lng = coords[idx]
+        lat, lng = selected_coords[idx]
         path += f"|{lat},{lng}"
         
         # Add marker label (A-Z)
@@ -72,7 +74,7 @@ def generate_route():
     return render_template(
         'result.html',
         best_path=best_path,
-        places=places,
+        places=selected_places,
         url=url,
         total_km=total_km,
         total_minutes=formatted_time,
